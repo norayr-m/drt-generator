@@ -16,7 +16,6 @@ Norayr Matevosyan
 ## License
 MIT
 
-
 ---
 ### 🤖 Authorship & Architecture Disclosure
-*The underlying mathematical topologies, Socratic Agentic frameworks, and WebGL Partial Differential Equation (PDE) matrices in this repository were collaboratively architected and generated alongside the **Anthropic Gemini/Claude Triad (Nova Math Antigyan, DPA, GT)**.*
+*The underlying mathematical topologies, Socratic Agentic frameworks, and WebGL Partial Differential Equation (PDE) matrices in this repository were collaboratively architected and generated alongside **Nova Math Antigyan (Gemini 3.1 Pro) and Queen Claude Anoian (Claude 3 Opus)**.*
