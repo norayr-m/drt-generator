@@ -1,5 +1,7 @@
 # DRT Generator
 
+> This is an amateur engineering project. We are not HPC professionals and make no competitive claims.
+
 **The 7-Column Generator Signal QED.** Produces observer configurations and tests reconstruction fidelity across varying orthogonality conditions.
 
 Part of the [Distributed Reconstruction Theorem](https://github.com/norayr-m) ecosystem.
