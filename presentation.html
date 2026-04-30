@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DRT_Generator — sparse matrix-vector multiplication, drawn out</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0806; color: #a09070; font: 18px/1.6 'Georgia', serif; scroll-behavior: smooth; }
+  .slide { min-height: 100vh; padding: 40px 20px 40px 60px; display: flex; flex-direction: column; justify-content: center; align-items: center; border-bottom: 1px solid rgba(138,122,90,0.15); max-width: 900px; margin: 0 auto; position: relative; }
+  h1 { font: 42px/1.2 'SF Mono', 'Menlo', 'Courier New', monospace; color: #c4a35a; letter-spacing: 3px; text-align: center; }
+  h2 { font: 26px/1.3 'SF Mono', 'Menlo', 'Courier New', monospace; color: #c4a35a; margin-bottom: 20px; text-align: center; }
+  h3 { font: 20px/1.3 'SF Mono', 'Menlo', 'Courier New', monospace; color: #8a7a5a; margin: 16px 0 8px; }
+  .subtitle { color: #5a4a2a; font-style: italic; text-align: center; margin: 10px 0 30px; font-size: 16px; max-width: 760px; }
+  .narration { color: #706050; font-size: 16px; line-height: 1.7; margin: 16px 0; padding: 16px; border-left: 3px solid rgba(138,122,90,0.2); }
+  .controls { display: flex; gap: 12px; margin: 20px 0; justify-content: center; }
+  .controls button { background: rgba(138,122,90,0.15); border: 1px solid rgba(138,122,90,0.3); color: #c4a35a; padding: 8px 20px; border-radius: 6px; cursor: pointer; font: 16px 'SF Mono', monospace; }
+  .controls button:hover { background: rgba(138,122,90,0.3); }
+  .hl { color: #c4a35a; font-weight: bold; }
+  .dim { color: #5a4a2a; }
+  .nav { position: fixed; left: 10px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 12px; z-index: 20; }
+  .nav button { background: rgba(26,20,8,0.8); border: 1px solid rgba(138,122,90,0.3); color: #c4a35a; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px; }
+  .nav button:hover { background: rgba(138,122,90,0.3); }
+  .slide-num { position: absolute; top: 16px; right: 20px; color: #3a2a1a; font: 14px 'SF Mono', monospace; }
+  a { color: #c4a35a; text-decoration: none; border-bottom: 1px dotted rgba(196,163,90,0.4); }
+  a:hover { border-bottom-color: #c4a35a; }
+  ul, ol { margin: 10px 0; padding-left: 24px; }
+  li { margin: 6px 0; font-size: 16px; }
+  p { margin: 12px 0; }
+  .body { max-width: 760px; }
+  .formula { font: 22px 'SF Mono', monospace; color: #c4a35a; text-align: center; margin: 18px 0; }
+  .gloss { color: #706050; font-style: italic; text-align: center; font-size: 15px; margin-bottom: 16px; }
+  .cols-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; width: 100%; margin: 20px 0; }
+  .col-block { padding: 16px; border: 1px solid rgba(138,122,90,0.2); border-radius: 8px; }
+  .col-block h3 { margin-top: 0; }
+  .three-panels { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; width: 100%; margin: 20px 0; }
+  .panel-cap { text-align: center; color: #8a7a5a; font: 14px 'SF Mono', monospace; margin-top: 8px; }
+  .footer-block { margin-top: 30px; padding: 16px; border: 1px solid rgba(138,122,90,0.15); border-radius: 8px; text-align: center; color: #5a4a2a; font: 12px 'SF Mono', monospace; max-width: 760px; }
+  .credit { margin-top: 16px; color: #3a2a1a; font: 12px 'SF Mono', monospace; text-align: center; }
+  svg text { font-family: 'SF Mono', 'Menlo', 'Courier New', monospace; }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <button onclick="goSlide(currentSlide-1)" title="Previous">&#9650;</button>
+  <button onclick="speak(currentSlide)" title="Play/Pause (Space)" id="nav-play">&#9654;</button>
+  <button onclick="goSlide(currentSlide+1)" title="Next">&#9660;</button>
+</div>
+
+<!-- SLIDE 1: TITLE -->
+<div class="slide" id="s1">
+  <div style="margin-bottom: 24px;">
+    <svg width="160" height="120" viewBox="0 0 160 120">
+      <!-- sparse matrix dot pattern -->
+      <g fill="#c4a35a">
+        <circle cx="20"  cy="20" r="4"/>
+        <circle cx="60"  cy="20" r="4" opacity="0.4"/>
+        <circle cx="100" cy="40" r="4"/>
+        <circle cx="20"  cy="60" r="4" opacity="0.4"/>
+        <circle cx="80"  cy="60" r="4"/>
+        <circle cx="140" cy="60" r="4" opacity="0.4"/>
+        <circle cx="40"  cy="80" r="4" opacity="0.4"/>
+        <circle cx="100" cy="100" r="4"/>
+        <circle cx="60"  cy="100" r="4" opacity="0.4"/>
+      </g>
+      <!-- × symbol -->
+      <text x="155" y="64" font-size="22" fill="#8a7a5a">×</text>
+    </svg>
+  </div>
+  <h1>DRT_Generator</h1>
+  <div class="subtitle">A browser demo where the same sparse matrix-vector multiplication is drawn two ways — as a rigid logic pipeline, and as a deep graph. Once both are visible at once, the difference between rule-based and neural stops being a difference.</div>
+  <div style="color: #5a4a2a; font: 14px 'SF Mono', monospace; text-align: center; margin-top: 20px;">
+    github.com/norayr-m/drt-generator &middot; <a href="https://norayr-m.github.io/drt-generator/">live demo</a> &middot; April 2026
+  </div>
+  <div class="narration" id="n1">This deck is a small primer on sparse matrix-vector multiplication, told through a worked example. The example is a browser demo. The demo runs a chain of seven small operations that turn a rotating clock tick into a harmonic waveform. Most of those operations are matrix-vector multiplications, and most of the matrices involved are sparse. The same chain is then redrawn as a seven-layer deep graph, side by side with the pipeline. The point is to make a single thing visible: a rule-based pipeline and a deep neural network can be two different drawings of the same arithmetic. Once you see them at the same time, the question of whether the demo is doing logic or doing learning stops being interesting; the linear algebra is the same either way. No prior background is required to follow the next eight slides.</div>
+  <div class="controls"><button class="play-btn" onclick="speak(1)">&#9654;</button></div>
+  <div class="slide-num">1 / 9</div>
+</div>
+
+<!-- SLIDE 2: WHAT YOU SEE -->
+<div class="slide" id="s2">
+  <h2>What you see when the page loads</h2>
+  <div class="body">
+    <ul>
+      <li>Seven columns laid out left to right, each labelled.</li>
+      <li>A rotating clock at the far left, ticking out a phase.</li>
+      <li>A row of weighted "dice" appearing in column four — these are the nonzero entries of a sparse vector.</li>
+      <li>A small audio waveform rebuilding itself at the far right.</li>
+      <li>A play / pause control, an audio mute, and a phase counter.</li>
+    </ul>
+  </div>
+  <div style="margin: 24px 0;">
+    <svg width="760" height="120" viewBox="0 0 760 120">
+      <circle cx="40" cy="60" r="22" fill="none" stroke="#c4a35a" stroke-width="2"/>
+      <line x1="40" y1="60" x2="40" y2="44" stroke="#c4a35a" stroke-width="2"/>
+      <line x1="40" y1="60" x2="52" y2="60" stroke="#c4a35a" stroke-width="2"/>
+      <g font-size="11" fill="#8a7a5a" text-anchor="middle">
+        <rect x="80"  y="36" width="80" height="48" fill="none" stroke="#c4a35a"/>
+        <text x="120" y="65">phase</text>
+        <rect x="170" y="36" width="80" height="48" fill="none" stroke="#c4a35a"/>
+        <text x="210" y="65">index</text>
+        <rect x="260" y="36" width="80" height="48" fill="none" stroke="#c4a35a"/>
+        <text x="300" y="65">select</text>
+        <rect x="350" y="36" width="80" height="48" fill="none" stroke="#c4a35a"/>
+        <text x="390" y="65">sparse vec</text>
+        <rect x="440" y="36" width="80" height="48" fill="none" stroke="#c4a35a"/>
+        <text x="480" y="65">activate</text>
+        <rect x="530" y="36" width="80" height="48" fill="none" stroke="#c4a35a"/>
+        <text x="570" y="65">propagate</text>
+        <rect x="620" y="36" width="80" height="48" fill="none" stroke="#c4a35a"/>
+        <text x="660" y="65">assemble</text>
+      </g>
+      <g stroke="#8a7a5a" stroke-width="1.5" fill="none">
+        <line x1="62"  y1="60" x2="80"  y2="60"/>
+        <line x1="160" y1="60" x2="170" y2="60"/>
+        <line x1="250" y1="60" x2="260" y2="60"/>
+        <line x1="340" y1="60" x2="350" y2="60"/>
+        <line x1="430" y1="60" x2="440" y2="60"/>
+        <line x1="520" y1="60" x2="530" y2="60"/>
+        <line x1="610" y1="60" x2="620" y2="60"/>
+        <line x1="710" y1="60" x2="730" y2="60"/>
+      </g>
+      <path d="M 730 60 Q 738 48, 740 60 Q 742 72, 744 60 Q 746 48, 748 60 Q 750 72, 752 60" fill="none" stroke="#c4a35a" stroke-width="2"/>
+    </svg>
+  </div>
+  <div class="narration" id="n2">When you open the live page, the first thing you see is a row of seven labelled columns running left to right. At the far left is a rotating clock. The clock ticks out a phase, a single integer that increments. As the clock ticks, the value flows rightward through the columns. Column two takes the phase and produces an index. Column three uses that index to select a row from a sparse routing matrix. Column four shows the selected row as a set of weighted dice — these dice are the nonzero entries of a sparse vector, the rest of the entries are zero and not drawn. The dice values pass through column five's element-wise activation functions, column six's small feed-forward propagation, and arrive at column seven, where the result vector is reassembled into the harmonic frequencies of the audio. You can press play, watch the columns light up in sequence on every tick, and listen to the resulting waveform.</div>
+  <div class="controls"><button class="play-btn" onclick="speak(2)">&#9654;</button></div>
+  <div class="slide-num">2 / 9</div>
+</div>
+
+<!-- SLIDE 3: TWO VIEWS -->
+<div class="slide" id="s3">
+  <h2>The same thing, twice</h2>
+  <div class="cols-2">
+    <div class="col-block">
+      <h3>Pipeline view</h3>
+      <p>Rigid boxes. Arrows. Index → row selection → sparse vector → activation → propagation → audio. The mat-vec structure is explicit.</p>
+    </div>
+    <div class="col-block">
+      <h3>Graph view</h3>
+      <p>The same operations redrawn as a seven-layer graph. Every box becomes a layer of nodes, every arrow becomes a weighted edge — the matrices are the edge weights.</p>
+    </div>
+  </div>
+  <div style="margin: 16px 0;">
+    <svg width="760" height="200" viewBox="0 0 760 200">
+      <g stroke="#c4a35a" stroke-width="1.5" fill="none">
+        <rect x="30"  y="80" width="36" height="36"/>
+        <rect x="80"  y="80" width="36" height="36"/>
+        <rect x="130" y="80" width="36" height="36"/>
+        <rect x="180" y="80" width="36" height="36"/>
+        <rect x="230" y="80" width="36" height="36"/>
+        <rect x="280" y="80" width="36" height="36"/>
+        <rect x="330" y="80" width="36" height="36"/>
+      </g>
+      <g stroke="#8a7a5a" stroke-width="1" fill="none">
+        <line x1="66"  y1="98" x2="80"  y2="98"/>
+        <line x1="116" y1="98" x2="130" y2="98"/>
+        <line x1="166" y1="98" x2="180" y2="98"/>
+        <line x1="216" y1="98" x2="230" y2="98"/>
+        <line x1="266" y1="98" x2="280" y2="98"/>
+        <line x1="316" y1="98" x2="330" y2="98"/>
+      </g>
+      <line x1="395" y1="20" x2="395" y2="180" stroke="#3a2a1a" stroke-width="1"/>
+      <g fill="#c4a35a">
+        <circle cx="430" cy="40"  r="4"/><circle cx="430" cy="80" r="4"/><circle cx="430" cy="120" r="4"/><circle cx="430" cy="160" r="4"/>
+        <circle cx="475" cy="40"  r="4"/><circle cx="475" cy="80" r="4"/><circle cx="475" cy="120" r="4"/><circle cx="475" cy="160" r="4"/>
+        <circle cx="520" cy="40"  r="4"/><circle cx="520" cy="80" r="4"/><circle cx="520" cy="120" r="4"/><circle cx="520" cy="160" r="4"/>
+        <circle cx="565" cy="40"  r="4"/><circle cx="565" cy="80" r="4"/><circle cx="565" cy="120" r="4"/><circle cx="565" cy="160" r="4"/>
+        <circle cx="610" cy="40"  r="4"/><circle cx="610" cy="80" r="4"/><circle cx="610" cy="120" r="4"/><circle cx="610" cy="160" r="4"/>
+        <circle cx="655" cy="40"  r="4"/><circle cx="655" cy="80" r="4"/><circle cx="655" cy="120" r="4"/><circle cx="655" cy="160" r="4"/>
+        <circle cx="700" cy="40"  r="4"/><circle cx="700" cy="80" r="4"/><circle cx="700" cy="120" r="4"/><circle cx="700" cy="160" r="4"/>
+      </g>
+      <g stroke="#c4a35a" stroke-width="0.4" opacity="0.5" fill="none">
+        <line x1="430" y1="40"  x2="475" y2="40"/>  <line x1="430" y1="40"  x2="475" y2="80"/>
+        <line x1="430" y1="80"  x2="475" y2="40"/>  <line x1="430" y1="80"  x2="475" y2="120"/>
+        <line x1="430" y1="120" x2="475" y2="80"/>  <line x1="430" y1="120" x2="475" y2="160"/>
+        <line x1="430" y1="160" x2="475" y2="120"/> <line x1="430" y1="160" x2="475" y2="160"/>
+        <line x1="475" y1="40"  x2="520" y2="80"/>  <line x1="475" y1="80"  x2="520" y2="40"/>
+        <line x1="475" y1="120" x2="520" y2="160"/> <line x1="475" y1="160" x2="520" y2="120"/>
+        <line x1="520" y1="40"  x2="565" y2="80"/>  <line x1="520" y1="80"  x2="565" y2="40"/>
+        <line x1="520" y1="120" x2="565" y2="160"/> <line x1="520" y1="160" x2="565" y2="120"/>
+        <line x1="565" y1="40"  x2="610" y2="80"/>  <line x1="565" y1="80"  x2="610" y2="40"/>
+        <line x1="565" y1="120" x2="610" y2="160"/> <line x1="565" y1="160" x2="610" y2="120"/>
+        <line x1="610" y1="40"  x2="655" y2="80"/>  <line x1="610" y1="80"  x2="655" y2="40"/>
+        <line x1="610" y1="120" x2="655" y2="160"/> <line x1="610" y1="160" x2="655" y2="120"/>
+        <line x1="655" y1="40"  x2="700" y2="80"/>  <line x1="655" y1="80"  x2="700" y2="40"/>
+        <line x1="655" y1="120" x2="700" y2="160"/> <line x1="655" y1="160" x2="700" y2="120"/>
+      </g>
+    </svg>
+  </div>
+  <div class="gloss">Identical computation. Identical signal. Two drawings of the same matrix-vector product.</div>
+  <div class="narration" id="n3">The demo can be viewed in two modes. The pipeline view shows the seven columns as discrete boxes with arrows between them — the way a programmer would draw a flowchart of mat-vec operations in a numerical library. The graph view redraws the same machine as a seven-layer deep graph: every box becomes a layer of nodes, every arrow becomes a weighted edge, and the matrices that the pipeline view treats as opaque table lookups become explicit edge-weight patterns. Both diagrams compute the same output vector from the same input phase. Toggling between them is the central pedagogical point of the demo: what the pipeline view shows as a fixed sequence of mat-vec calls, the graph view shows as a small neural network. Same arithmetic, two pictures.</div>
+  <div class="controls"><button class="play-btn" onclick="speak(3)">&#9654;</button></div>
+  <div class="slide-num">3 / 9</div>
+</div>
+
+<!-- SLIDE 4: WHY SPARSE MATTERS -->
+<div class="slide" id="s4">
+  <h2>Why sparse matrix-vector multiplication matters</h2>
+  <div class="body">
+    <p>Most matrices that appear in real computation are <span class="hl">sparse</span> — the great majority of their entries are zero. Adjacency matrices of graphs (social networks, molecules, circuits, finite-element meshes) are sparse. Attention masks in transformers, especially block-sparse and local-attention variants, are sparse. The transition matrices of physical simulations are sparse because each cell talks only to its near neighbours. Even a fully-connected layer becomes sparse once magnitude pruning is applied.</p>
+    <p>The cost of multiplying a dense <span class="hl">N × N</span> matrix by a vector is <span class="hl">O(N²)</span> — every entry, zero or not, contributes one multiply and one add. A sparse mat-vec costs <span class="hl">O(nnz)</span> where <span class="hl">nnz</span> is the number of nonzero entries. For a graph adjacency with average degree <span class="hl">k</span>, that is <span class="hl">O(kN)</span>, and <span class="hl">k</span> is usually a small constant. The factor of <span class="hl">N / k</span> is where most of modern compute's headline numbers come from.</p>
+    <ul>
+      <li><span class="hl">Compute.</span> Skip the zeros. Each nonzero is one multiply-add.</li>
+      <li><span class="hl">Memory.</span> Store the nonzero pattern only — COO, CSR, CSC, or block-sparse. The dense form is never materialised.</li>
+      <li><span class="hl">Bandwidth.</span> Sparse storage means fewer bytes per useful operation, which matters more than FLOPs on modern hardware.</li>
+    </ul>
+  </div>
+  <div class="formula">y = A x &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; cost = O(nnz)</div>
+  <div class="gloss">where nnz is the number of nonzero entries of A — typically much less than N² for the matrices that actually show up</div>
+  <div class="narration" id="n2-extra"></div>
+  <div class="narration" id="n4">Most matrices that appear in real computation are sparse — the great majority of their entries are zero. Graph adjacency matrices are sparse, and that includes social networks, molecular bonds, electrical circuits, and finite-element meshes. Transformer attention masks, especially the block-sparse and local-attention variants, are sparse. Physical simulations are sparse because every cell only interacts with its near neighbours. Even a fully-connected neural layer becomes sparse once magnitude pruning has been applied. The cost of multiplying a dense N-by-N matrix by a vector is order N squared — every entry contributes one multiply and one add, regardless of whether it is zero. A sparse matrix-vector multiplication costs only on the order of the number of nonzeros. For a graph adjacency with average degree k, that is order k times N, and k is usually a small constant. The factor of N over k is where most of modern compute's headline numbers come from. Three savings stack: compute, by skipping the zeros; memory, by storing only the nonzero pattern in formats like compressed sparse row; and bandwidth, by reading fewer bytes per useful operation, which on modern hardware matters more than the raw FLOP count.</div>
+  <div class="controls"><button class="play-btn" onclick="speak(4)">&#9654;</button></div>
+  <div class="slide-num">4 / 9</div>
+</div>
+
+<!-- SLIDE 5: PIPELINE EQUALS NETWORK -->
+<div class="slide" id="s5">
+  <h2>Pipeline equals network. Drawn out, not assumed.</h2>
+  <div class="body">
+    <p>Most of the time, "rule-based pipeline" and "deep neural network" are treated as different kinds of object — one is written by a programmer, the other is trained from data. The seven-column generator demonstrates, by direct construction on a single mat-vec chain, that they are the same kind of object. The same arithmetic that the pipeline view shows as a fixed logical sequence is what the graph view shows as a small network with weighted layers and activation functions. No retraining. No wrapper. Same matrices, two pictures.</p>
+    <p>The reason this matters for sparse mat-vec specifically is that the two views suggest different optimisations. The pipeline view makes the structured sparsity pattern explicit — you can see that column three is a one-hot row pick, column four is a sparse vector with a known support, column six is a small dense block. The graph view makes the parallelism explicit — you can see which layers can be evaluated independently and where the data dependencies live. Both views run on the same matrices; choosing between them is choosing what to optimise for.</p>
+  </div>
+  <div style="margin: 18px 0;">
+    <svg width="760" height="160" viewBox="0 0 760 160">
+      <g stroke="#c4a35a" stroke-width="1.5" fill="none" opacity="0.85">
+        <rect x="40"  y="64" width="38" height="32"/>
+        <rect x="92"  y="64" width="38" height="32"/>
+        <rect x="144" y="64" width="38" height="32"/>
+        <line x1="78"  y1="80" x2="92"  y2="80" stroke="#8a7a5a" stroke-width="1"/>
+        <line x1="130" y1="80" x2="144" y2="80" stroke="#8a7a5a" stroke-width="1"/>
+      </g>
+      <g stroke="#8a7a5a" stroke-width="1" stroke-dasharray="4,4" fill="none">
+        <path d="M 200 80 Q 280 40 360 80" />
+        <path d="M 200 80 Q 280 120 360 80" />
+      </g>
+      <text x="280" y="30" text-anchor="middle" fill="#8a7a5a" font-size="13" font-family="SF Mono, monospace">drag the slider</text>
+      <text x="280" y="148" text-anchor="middle" fill="#5a4a2a" font-size="11" font-family="SF Mono, monospace">pipeline → network · same matrices</text>
+      <g fill="#c4a35a" opacity="0.85">
+        <circle cx="420" cy="50" r="4"/><circle cx="420" cy="80" r="4"/><circle cx="420" cy="110" r="4"/>
+        <circle cx="475" cy="50" r="4"/><circle cx="475" cy="80" r="4"/><circle cx="475" cy="110" r="4"/>
+        <circle cx="530" cy="50" r="4"/><circle cx="530" cy="80" r="4"/><circle cx="530" cy="110" r="4"/>
+      </g>
+      <g stroke="#c4a35a" stroke-width="0.5" opacity="0.5" fill="none">
+        <line x1="420" y1="50" x2="475" y2="50"/> <line x1="420" y1="50" x2="475" y2="80"/>
+        <line x1="420" y1="80" x2="475" y2="50"/> <line x1="420" y1="80" x2="475" y2="80"/> <line x1="420" y1="80" x2="475" y2="110"/>
+        <line x1="420" y1="110" x2="475" y2="80"/> <line x1="420" y1="110" x2="475" y2="110"/>
+        <line x1="475" y1="50" x2="530" y2="50"/> <line x1="475" y1="50" x2="530" y2="80"/>
+        <line x1="475" y1="80" x2="530" y2="50"/> <line x1="475" y1="80" x2="530" y2="80"/> <line x1="475" y1="80" x2="530" y2="110"/>
+        <line x1="475" y1="110" x2="530" y2="80"/> <line x1="475" y1="110" x2="530" y2="110"/>
+      </g>
+    </svg>
+  </div>
+  <div class="narration" id="n5">There is a particular reason this slice deserves a separate demo. In most software, the line between rule-based numerical code and neural network code is treated as architectural — one is hand-written, the other is trained from data. The seven-column generator demonstrates, by direct construction on a single chain of mat-vec operations, that the line is a drawing convention rather than a structural difference. The same arithmetic that the pipeline view shows as a fixed sequence of matrix-vector calls is what the graph view shows as a small neural network with weights and activations. Toggling between them changes the picture, not the computation. The reason this matters for sparse mat-vec specifically is that the two views suggest different optimisations. The pipeline view makes the structured sparsity pattern explicit — column three is a one-hot row pick, column four is a sparse vector with known support, column six is a small dense block. The graph view makes the parallelism explicit — you can see which layers can be evaluated independently and where the data dependencies live. Both views run on the same matrices; choosing between them is choosing what to optimise for.</div>
+  <div class="controls"><button class="play-btn" onclick="speak(5)">&#9654;</button></div>
+  <div class="slide-num">5 / 9</div>
+</div>
+
+<!-- SLIDE 6: COLUMN BY COLUMN -->
+<div class="slide" id="s6">
+  <h2>Anatomy of the seven columns</h2>
+  <div class="body">
+    <ol>
+      <li><span class="hl">Phase.</span> A rotating clock ticks out an integer index <span class="hl">t = 0, 1, 2, …</span></li>
+      <li><span class="hl">Index map.</span> A small lookup table sends <span class="hl">t</span> to a pattern identifier <span class="hl">p</span>. Function call, no mat-vec yet.</li>
+      <li><span class="hl">Row select.</span> A sparse selection matrix <span class="hl">S</span> picks one row of the routing matrix indexed by <span class="hl">p</span>. This is a one-hot mat-vec: <span class="hl">r = S e_p</span> where <span class="hl">e_p</span> is the standard basis vector.</li>
+      <li><span class="hl">Sparse vector.</span> The selected row is the support of a sparse weight vector — only a handful of entries are nonzero. The dice physically extrude exactly the nonzero positions.</li>
+      <li><span class="hl">Activation.</span> Element-wise nonlinearity (rectifier, sigmoid, hyperbolic tangent) on the sparse vector. Cheap because zero stays zero; only the nonzeros change.</li>
+      <li><span class="hl">Propagate.</span> Multiply by a small dense matrix <span class="hl">W</span> — a hidden-layer weight. Output is dense (most entries become nonzero), but input is sparse so cost is <span class="hl">O(rows(W) · nnz)</span>.</li>
+      <li><span class="hl">Assemble.</span> Multiply by an output mixing matrix that mixes the dense intermediate into the harmonic frequency channels. The result is the audio waveform.</li>
+    </ol>
+  </div>
+  <div style="margin: 18px 0;">
+    <svg width="760" height="140" viewBox="0 0 760 140">
+      <line x1="20" y1="70" x2="740" y2="70" stroke="#c4a35a" stroke-width="2" opacity="0.6"/>
+      <g font-size="11" fill="#8a7a5a" text-anchor="middle">
+        <circle cx="60"  cy="70" r="14" fill="#0a0806" stroke="#c4a35a" stroke-width="1.5"/><text x="60"  y="74">⏱</text>
+        <text x="60" y="105">t</text>
+        <circle cx="160" cy="70" r="14" fill="#0a0806" stroke="#c4a35a" stroke-width="1.5"/><text x="160" y="74">▦</text>
+        <text x="160" y="105">p = LUT(t)</text>
+        <circle cx="260" cy="70" r="14" fill="#0a0806" stroke="#c4a35a" stroke-width="1.5"/><text x="260" y="74">⊞</text>
+        <text x="260" y="105">r = S e_p</text>
+        <circle cx="360" cy="70" r="14" fill="#0a0806" stroke="#c4a35a" stroke-width="1.5"/><text x="360" y="74">⚀</text>
+        <text x="360" y="105">x = sparse(r)</text>
+        <circle cx="460" cy="70" r="14" fill="#0a0806" stroke="#c4a35a" stroke-width="1.5"/><text x="460" y="74">∼</text>
+        <text x="460" y="105">σ(x)</text>
+        <circle cx="560" cy="70" r="14" fill="#0a0806" stroke="#c4a35a" stroke-width="1.5"/><text x="560" y="74">≣</text>
+        <text x="560" y="105">W σ(x)</text>
+        <circle cx="660" cy="70" r="14" fill="#0a0806" stroke="#c4a35a" stroke-width="1.5"/><text x="660" y="74">∿</text>
+        <text x="660" y="105">y = M W σ(x)</text>
+      </g>
+    </svg>
+  </div>
+  <div class="gloss">Pipeline view shows these as boxes; graph view shows them as layers. Same arithmetic.</div>
+  <div class="narration" id="n6">Here is the column-by-column picture. Column one is a rotating clock that ticks out an integer index. Column two is a lookup table that sends that index to a pattern identifier — a function call, no mat-vec yet. Column three is the first matrix-vector multiplication: a sparse selection matrix picks one row of the routing matrix indexed by the pattern. This is the canonical one-hot mat-vec, multiplying by a standard basis vector. Column four shows the selected row as a sparse weight vector — only a handful of entries are nonzero, and the dice physically extrude exactly the nonzero positions. Column five applies an element-wise nonlinearity, which is cheap because zero stays zero and only the nonzeros change. Column six is the second mat-vec: multiply by a small dense weight matrix, the hidden-layer weight. The output is dense, but the input is sparse, so the cost is the number of output rows times the number of input nonzeros, not the dense cost. Column seven is the third mat-vec: multiply by an output mixing matrix that maps the intermediate vector into harmonic frequency channels, producing the audio waveform. The pipeline view draws this as boxes connected by arrows. The graph view draws it as layers of a network with weighted edges. The arithmetic is identical.</div>
+  <div class="controls"><button class="play-btn" onclick="speak(6)">&#9654;</button></div>
+  <div class="slide-num">6 / 9</div>
+</div>
+
+<!-- SLIDE 7: SPARSITY PATTERNS -->
+<div class="slide" id="s7">
+  <h2>What sparsity patterns the demo emits</h2>
+  <div class="body">
+    <p>Each phase tick produces one sparse weight vector — a particular pattern of nonzero entries in column four. The space of possible patterns is fixed by the lookup table in column two and the routing matrix in column three; the demo cycles through them as the clock advances. Watching the demo run for one full clock cycle is, in effect, watching the entire pattern dictionary pass through the chain once. Three illustrative patterns are shown alongside this narration.</p>
+  </div>
+  <div class="three-panels">
+    <div>
+      <svg width="100%" height="120" viewBox="0 0 200 120">
+        <line x1="20" y1="100" x2="180" y2="100" stroke="#8a7a5a" stroke-width="1"/>
+        <rect x="40"  y="40" width="20" height="60" fill="#c4a35a" opacity="0.85"/>
+        <rect x="80"  y="80" width="20" height="20" fill="#c4a35a" opacity="0.4"/>
+        <rect x="120" y="90" width="20" height="10" fill="#c4a35a" opacity="0.3"/>
+        <rect x="160" y="92" width="20" height="8"  fill="#c4a35a" opacity="0.3"/>
+      </svg>
+      <div class="panel-cap">sparse · concentrated</div>
+    </div>
+    <div>
+      <svg width="100%" height="120" viewBox="0 0 200 120">
+        <line x1="20" y1="100" x2="180" y2="100" stroke="#8a7a5a" stroke-width="1"/>
+        <rect x="30"  y="60" width="20" height="40" fill="#c4a35a" opacity="0.7"/>
+        <rect x="60"  y="62" width="20" height="38" fill="#c4a35a" opacity="0.7"/>
+        <rect x="90"  y="58" width="20" height="42" fill="#c4a35a" opacity="0.7"/>
+        <rect x="120" y="60" width="20" height="40" fill="#c4a35a" opacity="0.7"/>
+        <rect x="150" y="62" width="20" height="38" fill="#c4a35a" opacity="0.7"/>
+      </svg>
+      <div class="panel-cap">balanced · roughly uniform</div>
+    </div>
+    <div>
+      <svg width="100%" height="120" viewBox="0 0 200 120">
+        <line x1="20" y1="100" x2="180" y2="100" stroke="#8a7a5a" stroke-width="1"/>
+        <rect x="22"  y="84" width="12" height="16" fill="#c4a35a" opacity="0.6"/>
+        <rect x="40"  y="80" width="12" height="20" fill="#c4a35a" opacity="0.6"/>
+        <rect x="58"  y="86" width="12" height="14" fill="#c4a35a" opacity="0.6"/>
+        <rect x="76"  y="78" width="12" height="22" fill="#c4a35a" opacity="0.6"/>
+        <rect x="94"  y="82" width="12" height="18" fill="#c4a35a" opacity="0.6"/>
+        <rect x="112" y="84" width="12" height="16" fill="#c4a35a" opacity="0.6"/>
+        <rect x="130" y="80" width="12" height="20" fill="#c4a35a" opacity="0.6"/>
+        <rect x="148" y="86" width="12" height="14" fill="#c4a35a" opacity="0.6"/>
+        <rect x="166" y="82" width="12" height="18" fill="#c4a35a" opacity="0.6"/>
+      </svg>
+      <div class="panel-cap">dense · many small entries</div>
+    </div>
+  </div>
+  <div class="narration" id="n7">Each tick of the rotating clock produces one sparse weight vector — a specific arrangement of nonzero entries in column four. The set of possible arrangements is fixed by the lookup table in column two and the routing matrix in column three; the demo cycles through them as the clock advances. Watching the demo run for one full clock period is, in effect, watching the entire pattern dictionary pass through the chain exactly once. Three illustrative cases are shown alongside this narration. The first is a concentrated sparse pattern with one or two heavy entries — most of the signal energy is in a small number of nonzeros. The second is a balanced pattern with roughly uniform weights spread across the support. The third is a denser pattern with many small entries — many channels active simultaneously at low individual weight. The audio sounds different for each because the downstream linear algebra is doing different work; the architecture is the same. In numerical-library terms, these three patterns have different sparsity ratios — the first has the lowest nonzero count and the highest individual magnitude; the third has the highest nonzero count and the lowest individual magnitude.</div>
+  <div class="controls"><button class="play-btn" onclick="speak(7)">&#9654;</button></div>
+  <div class="slide-num">7 / 9</div>
+</div>
+
+<!-- SLIDE 8: FORWARD AND BACKWARD -->
+<div class="slide" id="s8">
+  <h2>Forward and backward through the same matrices</h2>
+  <div class="body">
+    <p>The seven-column chain has a companion repository, <a href="https://norayr-m.github.io/drt-scanner/">DRT_Scanner</a>, which runs the same chain in reverse. The forward pass takes a phase index and produces an audio output. The reverse pass takes an output signal and projects it back through the transposes of the same matrices, recovering an estimate of the input. This is the same forward/backward pattern that powers automatic differentiation in modern numerical libraries — and the same one that powers message-passing on the transpose graph in graph neural networks.</p>
+    <ul>
+      <li><span class="hl">Agreement.</span> Forward and reverse passes give matching values at each column. The matrices are well-conditioned for inversion at this configuration.</li>
+      <li><span class="hl">Divergence.</span> The reverse pass produces values the forward pass did not emit. Information has been lost — the forward map is not invertible at this configuration, or numerical conditioning has broken down.</li>
+    </ul>
+  </div>
+  <div style="margin: 18px 0;">
+    <svg width="760" height="200" viewBox="0 0 760 200">
+      <text x="20" y="32" fill="#8a7a5a" font-size="12" font-family="SF Mono, monospace">forward →</text>
+      <g stroke="#c4a35a" stroke-width="1.5" fill="none">
+        <rect x="120" y="20" width="60" height="40"/>
+        <rect x="200" y="20" width="60" height="40"/>
+        <rect x="280" y="20" width="60" height="40"/>
+        <rect x="360" y="20" width="60" height="40"/>
+        <rect x="440" y="20" width="60" height="40"/>
+        <rect x="520" y="20" width="60" height="40"/>
+        <rect x="600" y="20" width="60" height="40"/>
+      </g>
+      <g stroke="#8a7a5a" stroke-width="1" fill="none">
+        <line x1="180" y1="40" x2="200" y2="40"/>
+        <line x1="260" y1="40" x2="280" y2="40"/>
+        <line x1="340" y1="40" x2="360" y2="40"/>
+        <line x1="420" y1="40" x2="440" y2="40"/>
+        <line x1="500" y1="40" x2="520" y2="40"/>
+        <line x1="580" y1="40" x2="600" y2="40"/>
+      </g>
+      <g stroke="#8a7a5a" stroke-width="1" fill="none" stroke-dasharray="3,3">
+        <line x1="150" y1="60" x2="150" y2="140"/>
+        <line x1="230" y1="60" x2="230" y2="140"/>
+        <line x1="310" y1="60" x2="310" y2="140"/>
+        <line x1="390" y1="60" x2="390" y2="140"/>
+        <line x1="470" y1="60" x2="470" y2="140"/>
+        <line x1="550" y1="60" x2="550" y2="140"/>
+        <line x1="630" y1="60" x2="630" y2="140"/>
+      </g>
+      <text x="390" y="105" text-anchor="middle" fill="#5a4a2a" font-size="11" font-family="SF Mono, monospace">compare</text>
+      <text x="20" y="172" fill="#8a7a5a" font-size="12" font-family="SF Mono, monospace">← reverse</text>
+      <g stroke="#c4a35a" stroke-width="1.5" fill="none">
+        <rect x="120" y="140" width="60" height="40"/>
+        <rect x="200" y="140" width="60" height="40"/>
+        <rect x="280" y="140" width="60" height="40"/>
+        <rect x="360" y="140" width="60" height="40"/>
+        <rect x="440" y="140" width="60" height="40"/>
+        <rect x="520" y="140" width="60" height="40"/>
+        <rect x="600" y="140" width="60" height="40"/>
+      </g>
+      <g stroke="#8a7a5a" stroke-width="1" fill="none">
+        <line x1="600" y1="160" x2="580" y2="160"/>
+        <line x1="520" y1="160" x2="500" y2="160"/>
+        <line x1="440" y1="160" x2="420" y2="160"/>
+        <line x1="360" y1="160" x2="340" y2="160"/>
+        <line x1="280" y1="160" x2="260" y2="160"/>
+        <line x1="200" y1="160" x2="180" y2="160"/>
+      </g>
+    </svg>
+  </div>
+  <div class="gloss">Generator multiplies by A. Scanner multiplies by A<sup>T</sup>. Same matrices, opposite direction.</div>
+  <div class="narration" id="n8">A natural next question, once you have a forward chain of matrix-vector multiplications, is whether the chain can be run backwards. The companion repository, scanner, exists to answer that. The scanner uses the same seven matrices, but the wires flow from right to left. A signal sits at the right, and at each tick that signal is multiplied by the transposes of the matrices, in reverse order. The intermediate values are read off and shown. Where the reverse pass agrees with what the forward pass produced, the columns light up green; the matrices are well-conditioned for inversion at that configuration. Where the reverse pass disagrees, the columns flag the divergence; information has been lost, the forward map is not invertible at that configuration, or numerical conditioning has broken down. This forward-backward pattern is exactly the same one that powers automatic differentiation in modern numerical libraries, and the same one that powers message-passing on transpose graphs in graph neural networks. The pair of repositories is deliberately released together to make that symmetry visible on a small example.</div>
+  <div class="controls"><button class="play-btn" onclick="speak(8)">&#9654;</button></div>
+  <div class="slide-num">8 / 9</div>
+</div>
+
+<!-- SLIDE 9: CLOSE -->
+<div class="slide" id="s9">
+  <h2>What an interested reader walks away with</h2>
+  <div class="body">
+    <ul>
+      <li>A small browser demo where seven columns turn a clock tick into a harmonic waveform — a worked example of sparse matrix-vector multiplication.</li>
+      <li>A live, side-by-side proof that "rule-based pipeline" and "deep neural network" can be two drawings of the same chain of mat-vec operations.</li>
+      <li>One concrete, runnable example of how sparse vectors flow through a small pipeline of one-hot selection, element-wise activation, and dense propagation.</li>
+    </ul>
+    <p style="margin-top: 20px;">Live demo at <a href="https://norayr-m.github.io/drt-generator/">norayr-m.github.io/drt-generator</a>. Source on GitHub. Companion scanner at <a href="https://norayr-m.github.io/drt-scanner/">norayr-m.github.io/drt-scanner</a>.</p>
+  </div>
+  <div class="footer-block">
+    This is an amateur engineering project. We are not HPC professionals and make no competitive claims. Errors likely.
+  </div>
+  <div class="credit">
+    Visualization co-authored with Claude (Anthropic).
+  </div>
+  <div class="narration" id="n9">What you walk away from this deck with, if everything has landed cleanly, is three things. First, a small browser demo where seven columns turn a rotating clock tick into a harmonic waveform — a worked example of sparse matrix-vector multiplication. Second, a live, side-by-side demonstration that what is often described as a rule-based pipeline and what is often described as a deep neural network can be two different drawings of the same chain of mat-vec operations. Third, one concrete and runnable example of how a sparse vector flows through a small pipeline of one-hot selection, element-wise activation, and dense propagation. The live demo is at norayr-m.github.io slash drt-generator. The companion scanner repository, where the same matrices run backwards, is at norayr-m.github.io slash drt-scanner. This is an amateur engineering project. We are not HPC professionals and make no competitive claims. Errors are likely; the work is openly in progress; the demonstrations are honest about where they are and are not airtight.</div>
+  <div class="controls"><button class="play-btn" onclick="speak(9)">&#9654;</button></div>
+  <div class="slide-num">9 / 9</div>
+</div>
+
+<!-- FOOTER -->
+<div style="text-align:center;padding:40px;color:#3a2a1a;font:13px 'SF Mono',monospace;">
+  <span style="color:#5a4a2a;">Press Space to narrate &middot; &uarr;&darr; to navigate &middot; Works offline</span>
+</div>
+
+<script>
+let currentSlide = 1;
+let playing = false;
+let currentAudio = null;
+const totalSlides = 9;
+
+function speak(n) {
+  if (playing && currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; playing = false; updateBtns(); return; }
+  if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
+  currentAudio = new Audio('audio/slide_' + n + '.mp3');
+  currentAudio.onended = () => { playing = false; updateBtns(); };
+  currentAudio.onerror = () => {
+    const el = document.getElementById('n' + n);
+    if (!el) return;
+    const text = el.textContent.trim();
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.rate = 0.95;
+    const voices = speechSynthesis.getVoices();
+    const pref = voices.find(v => v.name.includes('Samantha')) ||
+                 voices.find(v => v.name.includes('Karen')) ||
+                 voices.find(v => v.lang.startsWith('en-GB')) ||
+                 voices.find(v => v.lang.startsWith('en')) || voices[0];
+    if (pref) utt.voice = pref;
+    utt.onend = () => { playing = false; updateBtns(); };
+    speechSynthesis.speak(utt);
+  };
+  currentAudio.play();
+  playing = true;
+  currentSlide = n;
+  updateBtns();
+}
+
+function updateBtns() {
+  document.querySelectorAll('.play-btn').forEach(b => b.textContent = '▶');
+  if (playing) {
+    const btns = document.querySelectorAll('.play-btn');
+    if (btns[currentSlide-1]) btns[currentSlide-1].textContent = '⏸';
+  }
+  document.getElementById('nav-play').textContent = playing ? '⏸' : '▶';
+}
+
+function goSlide(n) {
+  n = Math.max(1, Math.min(totalSlides, n));
+  currentSlide = n;
+  document.getElementById('s'+n).scrollIntoView({ behavior: 'smooth' });
+}
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'ArrowUp' || e.code === 'PageUp') { e.preventDefault(); goSlide(currentSlide-1); }
+  if (e.code === 'ArrowDown' || e.code === 'PageDown') { e.preventDefault(); goSlide(currentSlide+1); }
+  if (e.code === 'Space') { e.preventDefault(); speak(currentSlide); }
+});
+
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) currentSlide = parseInt(e.target.id.replace('s','')); });
+}, { threshold: 0.5 });
+document.querySelectorAll('.slide').forEach(s => observer.observe(s));
+
+speechSynthesis.getVoices();
+</script>
+</body>
+</html>
