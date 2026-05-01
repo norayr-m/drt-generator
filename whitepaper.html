@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generator, Cell Simulator, Scanner — a sparse matrix-vector trio for bio digital twins</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1408; color: #a09070; font: 16px/1.8 'Georgia', serif; padding: 40px 20px; max-width: 820px; margin: 0 auto; }
+  h1 { color: #c4a35a; font: 30px/1.3 'SF Mono', 'Menlo', 'Courier New', monospace; letter-spacing: 2px; margin-bottom: 8px; }
+  h2 { color: #c4a35a; font: 22px/1.4 'SF Mono', 'Menlo', 'Courier New', monospace; margin: 36px 0 12px; border-bottom: 1px solid rgba(138,122,90,0.2); padding-bottom: 6px; }
+  h3 { color: #8a7a5a; font: 17px/1.4 'SF Mono', 'Menlo', 'Courier New', monospace; margin: 24px 0 10px; }
+  p { margin-bottom: 14px; }
+  ul, ol { margin: 10px 0 14px 28px; }
+  li { margin: 6px 0; }
+  a { color: #c4a35a; text-decoration: none; border-bottom: 1px dotted rgba(196,163,90,0.4); }
+  a:hover { border-bottom-color: #c4a35a; }
+  code { background: rgba(138,122,90,0.15); padding: 2px 6px; border-radius: 3px; font: 14px 'SF Mono', monospace; color: #c4a35a; }
+  pre { background: rgba(26,20,8,0.9); border: 1px solid rgba(138,122,90,0.2); border-radius: 8px; padding: 14px 18px; overflow-x: auto; margin: 14px 0; font: 13px/1.6 'SF Mono', 'Menlo', monospace; color: #8a7a5a; }
+  pre code { background: none; padding: 0; color: #c4a35a; font-size: inherit; }
+  blockquote { border-left: 3px solid #c4a35a; padding: 8px 18px; margin: 14px 0; color: #8a7a5a; font-style: italic; background: rgba(138,122,90,0.06); border-radius: 0 6px 6px 0; }
+  blockquote strong { color: #c4a35a; font-style: normal; }
+  hr { border: none; border-top: 1px solid rgba(138,122,90,0.2); margin: 30px 0; }
+  .subtitle { color: #5a4a2a; font-style: italic; margin-bottom: 20px; font-size: 16px; }
+  .toc { background: rgba(26,20,8,0.6); border: 1px solid rgba(138,122,90,0.15); border-radius: 8px; padding: 18px 24px; margin: 20px 0 30px; }
+  .toc h2 { font-size: 17px; margin: 0 0 10px; border: none; padding: 0; }
+  .toc ul { margin: 0 0 0 20px; font-size: 14px; }
+  .toc li { margin: 3px 0; }
+  .hl { color: #c4a35a; font-weight: bold; }
+  .credit { color: #5a4a2a; font-size: 13px; border-top: 1px solid rgba(138,122,90,0.15); padding-top: 18px; margin-top: 30px; }
+  .nav { color: #5a4a2a; font: 13px 'SF Mono', monospace; margin-bottom: 20px; }
+  .nav a { color: #c4a35a; }
+  h2[id], h3[id] { scroll-margin-top: 20px; }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <a href="index.html">← back to drt-generator (live demo)</a> &middot;
+  <a href="presentation.html">presentation deck</a> &middot;
+  <a href="https://github.com/norayr-m/drt-generator">repository</a> &middot;
+  <a href="whitepaper.md">markdown source</a>
+</div>
+
+<h1>Generator, Cell Simulator, Scanner</h1>
+<p class="subtitle">A sparse matrix-vector trio for bio digital twins.</p>
+
+<blockquote>
+  <p><strong>Humble disclaimer.</strong> Amateur engineering project. We are not HPC professionals and make no competitive claims. The work is openly in progress; this paper is honest about what is solved, what is wired but not yet validated against biology, and where the framing is aspirational. Errors are likely.</p>
+  <p>GPLv3.</p>
+</blockquote>
+
+<div class="toc">
+  <h2>Contents</h2>
+  <ul>
+    <li><a href="#what">What — three repos, one workflow</a></li>
+    <li><a href="#why">Why — advantages over standard tools</a></li>
+    <li><a href="#how">How — bio digital twins, end to end</a></li>
+    <li><a href="#math">The math, kept tight</a></li>
+    <li><a href="#not">What is not in the paper</a></li>
+    <li><a href="#refs">References and acknowledgments</a></li>
+  </ul>
+</div>
+
+<hr>
+
+<h2 id="what">What — three repos, one workflow</h2>
+
+<p>Three small browser demos, taken together, walk through one complete computational pattern: produce a signal, propagate it through a population of locally-connected receivers, then verify whether the result can be reconstructed back to the original. Every step is a sparse matrix-vector multiplication; the trio stays inside that single arithmetic.</p>
+
+<ul>
+  <li><strong><a href="https://github.com/norayr-m/drt-generator">drt-generator</a></strong> produces the sparse projection matrices. A clock tick generates an integer index, a one-hot row-pick selects a row of a routing matrix, the row defines a sparse weight vector, an element-wise activation fires, a small dense propagation finishes the per-tick output. The seven-column pipeline is the visible per-tick mat-vec chain. The same arithmetic is drawable as a pipeline or as a deep graph; the demo shows both.</li>
+  <li><strong><a href="https://github.com/norayr-m/drt-cell-simulator">drt-cell-simulator</a></strong> hosts the receivers. Each cell is a small node on a graph topology — a cellular automaton with local rules over its neighbours' edges. The signal produced by the generator arrives at each cell as a per-tick projection; the cell's local rules combine the projection with its own state to produce the next-tick state. Distributed local transitions; emergent global behaviour; the public tagline reads <em>DRT as biology</em>. Each cell, in this paper's language, is a <em>receptor</em>.</li>
+  <li><strong><a href="https://github.com/norayr-m/drt-scanner">drt-scanner</a></strong> runs the transpose pass. It takes a target signal and projects it back through the transposes of the same matrices the generator used, in reverse order. Where the reverse pass agrees with the forward pass at every column, the chain is well-conditioned for inversion at that configuration; where it diverges, information has been lost — the forward map was not invertible at that state, or numerical conditioning broke down.</li>
+</ul>
+
+<p>Read in order, the trio is <em>generator → cell simulator → scanner</em>. The generator emits, the cell field receives, the scanner verifies. End to end is forward-pass plus backward-pass through the same matrices.</p>
+
+<p>That is one mathematical workflow expressed across three public repos. The next two sections are about why this shape matters and how it lands on a real applied target.</p>
+
+<hr>
+
+<h2 id="why">Why — advantages over standard tools</h2>
+
+<p>The trio is one solution among several to the same general question: <em>how do you simulate a population of locally-connected receivers responding to a propagating signal, verify the result, and do it on a laptop?</em> Three standard tools have answered that question for decades. Each has an honest cost.</p>
+
+<h3>Versus molecular dynamics</h3>
+
+<p>Molecular dynamics simulates atoms-by-atoms under explicit physical force fields. It is the gold standard for biophysical accuracy and the most expensive tool by far. A microsecond of MD on a million-atom system runs for days on a GPU cluster. The cost is not a code optimisation issue; the cost is the price of explicit physics at full resolution.</p>
+
+<p>The trio sits at a different level of abstraction. The generator's matrices are not physical force fields; they are coarse-grained projections, hand-designed or extracted from experimental data. The cell simulator's local rules are not Newtonian motion; they are local response models, often a few coefficients per cell. The result is many orders of magnitude cheaper — a million-cell simulation runs at interactive frame rates on a laptop — at the cost of explicit accuracy guarantees. The trio is right when coarse-grained signal propagation through a topologically-correct receiver field is the question; MD is right when atomistic accuracy is what matters. The two tools are not in competition; they answer different questions.</p>
+
+<h3>Versus graph neural networks</h3>
+
+<p>GNNs are also sparse-mat-vec on a graph. The architectural similarity to the cell simulator is real, and we say so explicitly: the demo's graph view of the seven-column generator IS a small neural network, with weights that happen to be hand-set instead of learned. The difference is in where the weights come from.</p>
+
+<p>A GNN ships its trained weights as opaque tensors. To reproduce the GNN's output you need the trained model file, you cannot inspect what each layer "does" without dedicated interpretability tooling, and you cannot easily swap in a different biological hypothesis without retraining. The trio's matrices are explicit, hand-set, and inspectable: the routing matrix of the generator is a literal CSV, the cell simulator's local rules fit on a slide, the scanner's transpose is a transpose. Same arithmetic; entirely different ergonomics for the model-builder.</p>
+
+<p>The trio is right when you want to see the matrix, change one entry, and immediately watch the propagation downstream. A GNN is right when no closed-form mapping exists from inputs to outputs and the model has to be learned from data. Again — not in competition; complementary.</p>
+
+<h3>Versus finite-element methods</h3>
+
+<p>FEM is the standard tool for spatially-distributed PDE problems. It is mature, robust, and has decades of optimised libraries. It also has a known scaling shape: each element carries a small dense matrix; the global system is sparse but the per-element work is dense. At biological scales — tissue volumes with hundreds of millions of cells — the per-element constant becomes the bottleneck, even though the global matrix is sparse.</p>
+
+<p>The trio's per-cell work is, by construction, a sparse mat-vec at <code>O(nnz)</code> not a dense <code>O(d^2)</code>. There is no per-element dense block. The cost-per-cell is bounded by the cell's own degree in the graph, not by an embedded dimension. For a hex-grid or a contact graph with average degree under 10, that is a single-digit number of multiply-adds per cell per tick. The trio scales linearly to the cell count; FEM scales linearly to (cells × per-element-dense-cost).</p>
+
+<p>The trio is right when a graph topology accurately captures the connectivity of the receiver field. FEM is right when the underlying PDE has continuous physics that needs proper element-wise integration. A tissue connectivity graph fits the trio better; a fluid-dynamics field fits FEM better.</p>
+
+<h3>Versus classical numerical libraries</h3>
+
+<p>Sparse-mat-vec libraries are everywhere: BLAS, MKL, cuSPARSE, and dozens of academic packages. The trio does not compete with these libraries; it is <em>built on top of</em> the same kernel. The contribution is not a faster mat-vec. The contribution is the assembled workflow — generator + receptor field + scanner, three repos that snap together to walk a complete forward-and-backward propagation cycle on a small enough example that the whole thing fits in a browser tab. The mat-vec is canonical; the assembly is the part you can copy.</p>
+
+<hr>
+
+<h2 id="how">How — bio digital twins, end to end</h2>
+
+<p>A bio digital twin is a computational model of a specific biological system — a heart chamber, a hepatic lobule, a section of cortex — wired tightly enough that it can predict the system's response to a stimulus before the stimulus is applied to the real tissue. The applied target for the trio is the construction of bio digital twins at tissue scale: hundreds of thousands to a few million cells, each with a small local rule, all responding to a signal that propagates through the connectivity.</p>
+
+<p>The end-to-end mapping from the trio onto a bio digital twin:</p>
+
+<h3>The generator side: signals as sparse projections</h3>
+
+<p>Each "signal wave" the digital twin receives — a hormone bolus, an electrical pulse, a drug dose — projects onto the receiver field as a sparse, time-varying weight vector. Most cells in the field are not directly affected at a given tick; the projection is sparse by physics. The generator's seven-column pipeline is the visible per-tick example of how that projection is constructed: a clock tick selects a row of the routing matrix, the row's nonzero entries are the cells that <em>will</em> respond at this tick. The routing matrix itself is the digital twin's encoding of which cells receive which inputs.</p>
+
+<p>For a real tissue model, the routing matrix is filled from experimental data — receptor density per cell, anatomical constraints on signal arrival, distance-from-source decay. The generator demo runs this on a small synthetic example for clarity; the same machinery accepts a routing matrix at any scale.</p>
+
+<h3>The cell simulator side: receptors as graph CA</h3>
+
+<p>A receptor cell, in this trio, is exactly what the <a href="https://github.com/norayr-m/drt-cell-simulator">drt-cell-simulator</a> repo calls it: a node on a graph topology with local rules over its neighbours' edges. <em>DRT as biology</em> is the public tagline. Each cell carries a small state vector, applies a per-tick rule over (its own previous state, the projection arriving from the generator, the states of its connected neighbours), and produces the next-tick state.</p>
+
+<p>For a bio digital twin, the cell's local rule is the receptor's response model: a Hill function, a Michaelis-Menten saturation, a small ODE step. The graph's edges are the actual connectivity of the tissue: gap junctions in cardiac muscle, sinusoid topology in liver, synaptic connectivity in cortex. The cell simulator's existing demo shows the abstract case (cellular automata on graph topology, emergent global behaviour from distributed local transitions); the bio digital twin instantiates that abstraction with biological connectivity and biological rules.</p>
+
+<p>The cost-per-cell-per-tick is the per-cell sparse mat-vec: the cell reads its own state, the projection from the generator, and its neighbours' states; combines them via the local rule; writes the next-tick state. For a graph with average degree <code>k</code>, the per-cell work is order <code>k</code>. For a tissue model with <code>N</code> cells, the total work is order <code>kN</code> per tick, which scales linearly. This is the property that makes laptop-scale digital twins achievable.</p>
+
+<h3>The scanner side: reconstruction fidelity as inversion check</h3>
+
+<p>A good digital twin is not just one that matches average behaviour; it is one whose forward map is well-enough conditioned that an inverse can be applied. If the twin maps a stimulus at time <code>t</code> to a tissue state at time <code>t+1</code>, the question <em>what stimulus produced this tissue state?</em> should have a recoverable answer when the forward map is locally invertible. The scanner demonstrates that inversion check directly: it runs the same matrices in reverse via their transposes, projects a target tissue state back through the chain, and reports column-by-column whether the reverse pass agrees with the forward pass.</p>
+
+<p>For the bio digital twin user, this is exactly the question of <em>can I attribute a measured tissue state to a known stimulus?</em> — the inverse-modelling question that medical imaging and biomedical inverse problems both ask. The scanner does not solve the full inverse problem; it does something more modest and more honest. It tells you <em>at which step in the forward chain the inversion fails, if it does</em>. A column that lights up green at one configuration but red at another is the digital twin telling you which regions of input space it is reliable for, and which regions it is not. That information is more useful than a single yes/no.</p>
+
+<h3>End-to-end: a worked applied loop</h3>
+
+<p>A complete loop on a bio digital twin, expressed in the trio's three repos:</p>
+
+<ol>
+  <li><strong>Generator round.</strong> A signal projection is constructed from the model's stimulus parameters. The seven-column generator produces, per tick, the sparse weight vector of which cells receive the input at that tick. For a tissue model, this is the propagation of a hormone bolus through the vascular topology, or the spread of an electrical pulse through gap junctions.</li>
+  <li><strong>Cell simulator update.</strong> The receptor field receives the projection. Each cell applies its local rule, combining the projection with its current state and the states of its neighbours, to produce the next-tick state. After many ticks, the field has settled into a response — the predicted tissue state.</li>
+  <li><strong>Scanner pass.</strong> The predicted tissue state is run back through the transposes of the same matrices. Column-by-column agreement is reported. Where the chain reconstructs back to the original stimulus, the model is locally invertible at that configuration; that region of input space is one where the digital twin can attribute observed tissue states to causes. Where the chain diverges, information has been lost during forward propagation; that region is one where the twin can predict but not retrodict.</li>
+</ol>
+
+<p>That loop runs end-to-end on a laptop. The math is sparse mat-vec the whole way through. The applied target is digital twins at tissue scale.</p>
+
+<hr>
+
+<h2 id="math">The math, kept tight</h2>
+
+<p>The trio's mathematics fits in a few formulas. Each formula gets a one-sentence plain-language gloss in the surrounding text.</p>
+
+<p>The generator's per-tick output:</p>
+
+<pre><code>y_t = M · σ( W · x_t )    with    x_t = sparse_select( S, p_t )    and    p_t = LUT( t )</code></pre>
+
+<blockquote>The clock tick <code>t</code> is sent through a lookup table to a pattern identifier <code>p_t</code>. A one-hot selection matrix <code>S</code> picks the corresponding row, producing a sparse weight vector <code>x_t</code>. An element-wise nonlinearity <code>σ</code> and a small dense propagation matrix <code>W</code> produce an intermediate vector. An output mixing matrix <code>M</code> produces the per-tick observable.</blockquote>
+
+<p>The cell simulator's per-cell, per-tick update on a graph with cell <code>i</code> and neighbour set <code>N(i)</code>:</p>
+
+<pre><code>s_{t+1, i} = R( s_{t, i} , y_t , { s_{t, j} : j ∈ N(i) } )</code></pre>
+
+<blockquote>Cell <code>i</code>'s state at tick <code>t+1</code> is a function <code>R</code> of (its own prior state, the per-tick projection arriving from the generator, the prior states of its graph neighbours). For each cell, the work is bounded by the cell's degree; for a graph with average degree <code>k</code> and <code>N</code> cells, the total work per tick is order <code>k · N</code>.</blockquote>
+
+<p>The scanner's inversion check, running in reverse:</p>
+
+<pre><code>x̂_t = S^T · σ^{-1}( W^T · M^T · y_t )</code></pre>
+
+<blockquote>Take the per-tick observable <code>y_t</code>. Apply the transpose of the output mixing, the inverse of the activation, the transpose of the dense propagation, and the transpose of the selection. The result <code>x̂_t</code> is the reverse pass's reconstruction of the original sparse weight vector. Agreement (<code>x̂_t ≈ x_t</code>) means the forward chain is locally invertible at this configuration; divergence flags information loss.</blockquote>
+
+<p>Three matrices, three transposes, two functions, one local rule. The whole trio fits in those four lines.</p>
+
+<hr>
+
+<h2 id="not">What is not in the paper</h2>
+
+<p>The honest list of what this paper deliberately does not claim:</p>
+
+<ul>
+  <li><strong>Validation against a specific biological dataset.</strong> The trio is a substrate, not a finished bio digital twin. The applied story above is the use-case framing; concrete validation runs against published tissue data are future work and would land in repositories of their own.</li>
+  <li><strong>A norm-growth inequality.</strong> Earlier prose around this family of demos asserted, for the aggregate of many partial views, that the aggregate had bigger norm than the original signal. That inequality has been retracted in the underlying v0.1 draft. Nothing in this paper depends on it. The trio's claims are mechanical (these matrices, these transposes, this composition) not analytical.</li>
+  <li><strong>A general inversion theorem.</strong> The scanner's column-by-column inversion check is a <em>diagnostic</em>, not a guarantee. It tells you at which step the inversion fails on a given configuration; it does not tell you that any specific input region is globally invertible. Bio digital twin users who need rigorous inverse-problem theory will need additional machinery (Tikhonov regularisation, posterior sampling, etc.) layered on top.</li>
+  <li><strong>A speedup claim against MD or GNN or FEM.</strong> The "Why" section above frames the trio's place against those tools by their cost shapes and use-case fits. It does not benchmark a specific case. Speedup numbers, when claimed, will live in repositories that ship reproducible benchmarks; this paper is the framing, not the timing.</li>
+</ul>
+
+<hr>
+
+<h2 id="refs">References and acknowledgments</h2>
+
+<ul>
+  <li><strong><a href="https://github.com/norayr-m/drt-generator">drt-generator</a></strong> — sparse matrix-vector multiplication, drawn out. Source repo with the live demo and the <a href="https://norayr-m.github.io/drt-generator/presentation.html">presentation deck</a>.</li>
+  <li><strong><a href="https://github.com/norayr-m/drt-cell-simulator">drt-cell-simulator</a></strong> — cellular automata on graph topology. The receptor-field demo.</li>
+  <li><strong><a href="https://github.com/norayr-m/drt-scanner">drt-scanner</a></strong> — the transpose pass, the inversion-fidelity diagnostic.</li>
+  <li><strong>Holling, C. S. (1959).</strong> <em>Some characteristics of simple types of predation and parasitism.</em> The general functional-form pattern referenced when discussing local response models in §How.</li>
+  <li><strong>Distributed Reconstruction work, v0.1 in preparation by N. Matevosyan and A. Petrosyan.</strong> The paper that frames the family of demos this trio belongs to, including the retraction noted in §What is not in the paper.</li>
+</ul>
+
+<p>Visualization and code co-authored with Claude (Anthropic).</p>
+
+<div class="credit">
+  <blockquote>
+    <p><strong>Humble disclaimer.</strong> Amateur engineering project. We are not HPC professionals and make no competitive claims. Numbers speak; ego doesn't. Errors likely.</p>
+  </blockquote>
+  <p>GPLv3. See <a href="LICENSE">LICENSE</a>. &middot; <a href="whitepaper.md">Markdown source</a>.</p>
+</div>
+
+</body>
+</html>
