@@ -2,7 +2,7 @@
 
 > **Humble disclaimer.** Amateur engineering project. We are not HPC professionals and make no competitive claims. The work is openly in progress; this paper is honest about what is solved, what is wired but not yet validated against biology, and where the framing is aspirational. Errors are likely.
 
-GPLv3.
+Apache 2.0.
 
 ---
 
@@ -158,4 +158,4 @@ Visualization and code co-authored with Claude (Anthropic).
 
 > **Humble disclaimer.** Amateur engineering project. We are not HPC professionals and make no competitive claims. Numbers speak; ego doesn't. Errors likely.
 
-GPLv3. See [`LICENSE`](LICENSE).
+Apache 2.0. See [`LICENSE`](LICENSE).
