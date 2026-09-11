@@ -24,7 +24,7 @@ The demo also has a counter-clockwise phase extractor view (Phase Tick → Patte
 
 ## Why it matters (DRT angle)
 
-This is the **operational core** of the Distributed Reconstruction sketch and the one Norayr has named as needing the most detailed page. It illustrates two things at once:
+This is the **operational core** of the Distributed Reconstruction sketch. It illustrates two things at once:
 
 1. **The encoder shape.** The seven columns are the structural skeleton of an "encoder" in the framework — phase to pattern, pattern to weights, weights to output. Each column is a small projection.
 2. **The equivalence.** Showing that the rigid 7-column pipeline and the 7-layer deep graph compute the same thing makes the framework's point concrete: a "pipeline" and a "neural network" are different drawings of the same object. Once you see them side-by-side, the question of "is it logic or is it learning" stops being interesting; the architecture is the same either way.
@@ -60,7 +60,7 @@ Full write-up: **[Generator, Cell Simulator, Scanner — a sparse matrix-vector 
 
 ## References
 
-- Distributed Reconstruction work — v0.1 in preparation, N. Matevosyan and A. Petrosyan.
+- Distributed Reconstruction work — N. Matevosyan, work in progress.
 
 Visualization co-authored with Claude (Anthropic).
 

@@ -150,7 +150,7 @@ The honest list of what this paper deliberately does not claim:
 - **[drt-cell-simulator](https://github.com/norayr-m/drt-cell-simulator)** — cellular automata on graph topology. The receptor-field demo.
 - **[drt-scanner](https://github.com/norayr-m/drt-scanner)** — the transpose pass, the inversion-fidelity diagnostic.
 - **Holling, C. S. (1959).** *Some characteristics of simple types of predation and parasitism.* The general functional-form pattern referenced when discussing local response models in §How.
-- **Distributed Reconstruction work, v0.1 in preparation by N. Matevosyan and A. Petrosyan.** The paper that frames the family of demos this trio belongs to, including the retraction noted in §What is not in the paper.
+- **Distributed Reconstruction work, N. Matevosyan, work in progress.** The paper that frames the family of demos this trio belongs to, including the retraction noted in §What is not in the paper.
 
 Visualization and code co-authored with Claude (Anthropic).
 
